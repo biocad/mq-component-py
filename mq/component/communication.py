@@ -1,4 +1,3 @@
-import msgpack
 import zmq
 
 from mq.protocol import Message, message_tag, MQError, error_transport
@@ -21,8 +20,7 @@ class IncomingDecorator:
         success = False
         while not success:
             try:
-                packed_tag, packed_message = self._channel_in.recv_multipart()
-                tag = msgpack.unpackb(packed_tag)
+                tag, packed_message = self._channel_in.recv_multipart()
                 message = Message()
                 message.unpack(packed_message)
             except Exception as e:
@@ -31,7 +29,7 @@ class IncomingDecorator:
                 self.error_send.send(MQError(error_transport, error_msg))
             else:
                 success = True
-        return (tag, message)
+        return tag, message
 
 
 class OutgoingDecorator:
@@ -47,24 +45,22 @@ class OutgoingDecorator:
     def send(self, message):
         tag = message_tag(message)
         packed_message = message.pack()
-        packed_tag = msgpack.packb(tag, use_bin_type=True)
-        self._channel_out.send_multipart([packed_tag, packed_message])
-
-    def send_multipart(self, tag, message):
         self._channel_out.send_multipart([tag, packed_message])
 
+    def send_multipart(self, tag, message):
+        self._channel_out.send_multipart([tag, message])
 
-def default_communication(error_send, logger, config, action, shared_message, task_id, master_send):
+
+def default_communication(context, error_send, logger, config, action, shared_message, task_id, master_send):
     """
     Communication level dispatcher. It provides user incoming communication channels from the scheduler and
     controller and an outgoing channel to controller. It also provides a shared string variable which user is free
     to modify. Its value will be included into monitoring message, so common use for it is to describe what's going
     on at the moment.
     """
-    context = zmq.Context()
 
     from_scheduler = context.socket(zmq.SUB)
-    from_scheduler.setsockopt(zmq.SUBSCRIBE, b'')
+
     from_scheduler.connect("tcp://" + config.scheduler_out['host'] + ':' + str(config.scheduler_out['comport']))
 
     to_scheduler = context.socket(zmq.PUSH)
@@ -80,3 +76,6 @@ def default_communication(error_send, logger, config, action, shared_message, ta
     to_sched_decorated = OutgoingDecorator(to_scheduler)
 
     action(from_sched_decorated, from_contr_decorated, to_sched_decorated, shared_message, master_send)
+
+
+all_topics = ''

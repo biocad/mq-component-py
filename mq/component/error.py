@@ -21,8 +21,7 @@ def default_error_handler(error_recv, logger, config, shared_message, task_id):
 
             tag = message_tag(message)
             packed_message = message.pack()
-            packed_tag = msgpack.packb(tag, use_bin_type=True)
-            to_scheduler.send_multipart([packed_tag, packed_message])
+            to_scheduler.send_multipart([tag, packed_message])
         except Exception as e:
             print("Error handler :: %s" % format(e))
 

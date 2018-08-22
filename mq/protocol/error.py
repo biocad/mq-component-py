@@ -1,5 +1,7 @@
 from mq.protocol.types import JSON
 import msgpack
+from json import loads
+
 
 class MQError(JSON):
     def __init__(self, code : int = None, message : str = None):
@@ -7,10 +9,8 @@ class MQError(JSON):
         self.message = message
 
     def unpack(self, packed_data):
-        dictionary = msgpack.unpackb(packed_data, raw=False)
-
-        self.code = unpack_field(dictionary, 'code')
-        self.message = unpack_field(dictionary, 'message')
+        self.code = loads(packed_data.decode('UTF-8'))['code']
+        self.message = loads(packed_data.decode('UTF-8'))['message']
 
 # Error codes
 

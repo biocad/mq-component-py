@@ -2,7 +2,7 @@ import multiprocessing as mp
 import zmq
 from ctypes import c_char_p
 
-from mq.component.communication import default_communication
+from mq.component.communication import default_communication, IncomingDecorator
 from mq.component.monitoring import default_monitor
 from mq.component.technical import default_tech_listener
 from mq.component.error import default_error_handler
@@ -39,6 +39,8 @@ class Component:
         self._name = name
         self.message_filter = tag_filter
 
+        self.context = zmq.Context()
+
         manager = mp.Manager()
 
         self.logger = Logger(name)
@@ -64,7 +66,7 @@ class Component:
                                    name='Monitoring sender')
 
         self._communication = mp.Process(target=default_communication,
-                                         args=(self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child, ),
+                                         args=(self.context, self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child,),
                                          name='Communication channel – scheduler')
 
         self._error_handler.start()
@@ -79,8 +81,6 @@ class Component:
 
         while True:
             command = self._tech_master.recv()
-            print(command)
-            print(self.task_id.value)
             if self.task_id.value == command and self._communication is not None:
                 self.task_id.value = None
                 self.logger.write_log('Component :: Kill message received – restarting communicational process.')
@@ -88,14 +88,14 @@ class Component:
                 self._communication.terminate()
                 self.is_alive.value = False
                 self._communication = mp.Process(target=default_communication,
-                                                 args=(self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child, ),
+                                                 args=(self.context, self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child, ),
                                                  name='Communication channel – scheduler')
                 self._communication.start()
                 self.logger.write_log('Component :: Communicational process started.')
                 self.is_alive.value = True
             elif command == "restart_communicational":
                 self._communication = mp.Process(target=default_communication,
-                                                 args=(self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child, ),
+                                                 args=(self.context, self.error_send, self.logger, self._config, self._action_wrapper, self.shared_message, self.task_id, self._tech_child, ),
                                                  name='Communication channel – scheduler')
                 self._communication.start()
                 self.is_alive.value = True
@@ -116,8 +116,44 @@ class Component:
     def run(self, sched_out, contr_out, sched_in, state_message):
         pass
 
+    def subscribe(self, sched_out : IncomingDecorator, topic : str):
+        """
+        Subscribes to given topic.
+        If component want to listen all messages, then `all_topics` from communicaton.py can be used.
+        :param sched_out: SUB channel from scheduler
+        :param topic: topic we are interested in
+        :return: None
+        """
+        sched_out._channel_in.setsockopt(zmq.SUBSCRIBE, topic.encode('utf8'))
+        return None
+
+    def unsubscribe(self, sched_out : IncomingDecorator, topic : str):
+        """
+        Inverse function to subscribe
+        """
+        sched_out._channel_in.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf8'))
+        return None
+
+    def subscribe_type_spec(self, sched_out : IncomingDecorator, type : str, spec : str):
+        """
+        Subscribes to topic that is `type:spec`
+        :param sched_out: SUB channel from scheduler
+        :param type: type of the message
+        :param spec: spec of the message
+        :return: None
+        """
+        sched_out._channel_in.setsockopt(zmq.SUBSCRIBE, (type + ':' + spec).encode('utf8'))
+        return None
+
+    def unsubscribe_type_spec(self, sched_out : IncomingDecorator, type : str, spec : str):
+        """
+        Inverse function to subscribe_type_spec
+        """
+        sched_out._channel_in.setsockopt(zmq.UNSUBSCRIBE, (type + ':' + spec).encode('utf8'))
+        return None
+
     def approve_tag(self, tag : bytes):
-        self.task_id.value = message_id(tag).decode('UTF-8')
+        self.task_id.value = message_id(tag)
 
     def get_config(self):
         return self._config

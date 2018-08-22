@@ -50,8 +50,8 @@ class MessagePack:
 
 class Message(MessagePack):
     def __init__(self):
-        self.id: bytes = None
-        self.pid: bytes = None
+        self.id: str = None
+        self.pid: str = None
         self.creator: str = None
         self.created_at: int = None
         self.expires_at: int = None

@@ -12,8 +12,8 @@ class RadioSpeaker(Component):
 
     def run(self, sched_out, contr_out, sched_in, state_message):
         while True:
-            message = create_message(b'', self.get_config().creator, never_expires, 'example_radio', 'JSON', 'data', RadioMessage().pack())
-            print(b'sent %s' % message.data)
+            message = create_message('', self.get_config().creator, never_expires, 'example_radio', 'JSON', 'data', RadioMessage().pack())
+            print('sent %s' % message.data)
             sched_in.send(message)
             time.sleep(2)
 

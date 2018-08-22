@@ -1,5 +1,4 @@
 import zmq
-import msgpack
 from mq.protocol import message_type, message_spec, Message, MQError, error_technical
 import json
 
@@ -17,8 +16,7 @@ def default_tech_listener(error_send, logger, config, master_send):
 
     while True:
         try:
-            packed_tag, packed_message = channel.recv_multipart()
-            tag = msgpack.unpackb(packed_tag)
+            tag, packed_message = channel.recv_multipart()
             message = Message()
             message.unpack(packed_message)
 

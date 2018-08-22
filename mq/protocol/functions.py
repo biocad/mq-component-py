@@ -1,16 +1,20 @@
+import string
 from time import time
-
-from base64 import b64encode
-from hashlib import sha1
+import random
 
 from mq.protocol.types import Message, MonitoringResult
 
 """
 Expiration time set to 0 indicates that message never expires.
 """
-never_expires : int = 0
+never_expires: int = 0
 
-def create_message(m_pid: bytes
+"""
+Empty id often indicates that message has no parent id.
+"""
+empty_id: str = ""
+
+def create_message(m_pid: str
                    , m_creator: str
                    , m_expires_at: int
                    , m_spec: str
@@ -18,8 +22,8 @@ def create_message(m_pid: bytes
                    , m_type: str
                    , m_data: bytes) -> Message:
     msg = Message()
-    m_id, m_created_at = get_id(m_creator, m_spec)
-
+    m_id = get_id()
+    m_created_at = epoch_time()
     msg.id = m_id
     msg.pid = m_pid
     msg.creator = m_creator
@@ -58,11 +62,11 @@ def mon_result_to_json(mon_result):
     return mon_message
 
 
-def get_id(m_creator: str, m_spec: str) -> (bytes, int):
-    timestamp = epoch_time()
-    m_id = b64encode(sha1(
-        m_creator.encode('UTF-8') + b':' + str(timestamp).encode('UTF-8') + b':' + m_spec.encode('UTF-8')).digest())
-    return (m_id, timestamp)
+idLength = 40
+
+
+def get_id() -> str:
+    return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(idLength)])
 
 
 def epoch_time() -> int:
